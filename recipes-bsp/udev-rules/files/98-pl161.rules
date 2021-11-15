@@ -1,0 +1,9 @@
+SUBSYSTEMS=="input", DEVPATH=="/devices/soc0/soc/2100000.aips-bus/21a8000.i2c/i2c-2/2-0038/input/input*/event*", SYMLINK+="input/touch/internal"
+SUBSYSTEMS=="input", ENV{ID_PATH_TAG}=="platform-ci_hdrc_1-usb-0_1_2_1_0", SYMLINK+="input/touch/internal"
+SUBSYSTEMS=="input", ENV{ID_PATH_TAG}=="platform-ci_hdrc_1-usb-0_1_1_1_0", SYMLINK+="input/touch/external"
+KERNEL=="fb0", SUBSYSTEM=="graphics", ATTR{name}=="external", SYMLINK+="fb2"
+SUBSYSTEM=="graphics", ATTR{name}=="external", SYMLINK+="fb4"
+SUBSYSTEM=="graphics", ATTR{name}=="internal", SYMLINK+="fb3"
+
+SUBSYSTEMS=="input", ENV{ID_PATH_TAG}=="platform-ci_hdrc_1-usb-0_1_2_1_0", ACTION=="add", RUN+="/bin/systemctl restart pl161-internal"
+SUBSYSTEMS=="input", ENV{ID_PATH_TAG}=="platform-ci_hdrc_1-usb-0_1_1_1_0", ACTION=="add", RUN+="/bin/systemctl restart pl161-external"

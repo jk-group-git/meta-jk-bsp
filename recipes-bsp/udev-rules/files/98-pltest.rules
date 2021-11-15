@@ -1,0 +1,3 @@
+SUBSYSTEM=="graphics", ATTR{name}=="external", SYMLINK+="fb4"
+SUBSYSTEM=="graphics", ATTR{name}=="internal", SYMLINK+="fb3"
+

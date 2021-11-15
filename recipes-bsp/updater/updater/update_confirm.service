@@ -1,0 +1,9 @@
+[Unit]
+Description=confirm an update has worked
+Before=usb-store-handler@.service
+After=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/bin/update_confirm

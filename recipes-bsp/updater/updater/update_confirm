@@ -1,0 +1,55 @@
+#!/bin/bash
+
+
+function determine_root {
+	readonly current_root_partuuid=`findmnt -n --raw --evaluate --output=PARTUUID /`
+	readonly current_root_node=`findmnt -n --raw --evaluate --output=source PARTUUID=$current_root_partuuid`
+	case $current_root_partuuid in
+		0cc66cc0-02)
+			readonly future_root_node=`realpath /dev/disk/by-partuuid/0cc66cc0-03`
+			;;
+		0cc66cc0-03)
+			readonly future_root_node=`realpath /dev/disk/by-partuuid/0cc66cc0-02`
+			;;
+		*)
+			;;
+	esac
+}
+
+function prepare_future_root {
+	if [ -b "$future_root_node" ]; then
+		mkfs.ext4 "$future_root_node"
+	fi
+}
+
+mountpoint=`mktemp -d`
+mount /dev/disk/by-partuuid/0cc66cc0-01 $mountpoint
+if [ -e $mountpoint/effective_env ]; then
+	if [ -e $mountpoint/env ];then
+		rm $mountpoint/env
+	fi
+	if [ -e $mountpoint/penv ]; then
+		rm $mountpoint/penv
+	fi
+	if [ -e $mountpoint/u-boot.bin ]; then
+		rm $mountpoint/u-boot.bin
+		rm $mountpoint/effective_env
+		reboot
+	fi
+else
+	determine_root
+	prepare_future_root
+	cp /usr/share/bootfiles/* $mountpoint
+	reboot
+fi
+echo "[versions]" > /etc/sw_versions
+
+echo uboot=`cat -v $mountpoint/effective_env | grep ^ver | awk '{split($0,a,"=");print a[2]}' | awk '{split($0,a," ");print a[2]}' | awk '{split($0,a,"-");print a[3]}'` >> /etc/sw_versions
+echo uboot_environment=`cat -v $mountpoint/effective_env | grep ^uenv | awk '{split($0,a,"="); print a[2]}'` >> /etc/sw_versions
+cat -v /media/effective_env | grep ^uenv_version >> /etc/sw_versions
+echo linux=`uname -r | awk '{split($0,a,"-"); print a[2]}' | awk '{split($0,a,"+"); print a[1]}'` >> /etc/sw_versions
+echo device-tree=`cat /proc/device-tree/version` >> /etc/sw_versions
+echo rootfsimage=`cat /etc/version` >> /etc/sw_versions
+umount $mountpoint
+sync
+rmdir $mountpoint

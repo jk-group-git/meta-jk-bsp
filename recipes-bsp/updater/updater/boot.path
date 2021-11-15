@@ -1,0 +1,10 @@
+[Unit]
+Description=watch for partuuid of boot partition to appear
+
+
+[Path]
+PathExists=/dev/disk/by-partuuid/0cc66cc0-01
+Unit=update_confirm.service
+
+[Install]
+WantedBy=multi-user.target
