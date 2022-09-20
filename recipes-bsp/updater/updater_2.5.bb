@@ -23,6 +23,8 @@ SRC_URI =   "file://systemupdate.sh\
              file://pl-test.pem\
              file://pl-161.pem\
              file://pl-900.pem\
+             file://pl-161-public.pem\
+             file://pl-900-public.pem\
             "
 
 inherit systemd
@@ -56,11 +58,13 @@ do_install_append_pl-test () {
 do_install_append_pl-161 () {
     install -m 0644 ${WORKDIR}/pl-test.pem ${D}${datadir}/keys/update/
     install -m 0644 ${WORKDIR}/pl-161.pem ${D}${datadir}/keys/update/
+    install -m 0644 ${WORKDIR}/pl-161-public.pem ${D}${datadir}/keys/update/
 }
 
 do_install_append_pl-900 () {
     install -m 0644 ${WORKDIR}/pl-900.pem ${D}${datadir}/keys/update/
     install -m 0644 ${WORKDIR}/pl-test.pem ${D}${datadir}/keys/update/
+    install -m 0644 ${WORKDIR}/pl-900-public.pem ${D}${datadir}/keys/update/
 }
 
 FILES_${PN} +=   "${bindir}\
