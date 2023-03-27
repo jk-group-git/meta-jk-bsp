@@ -340,7 +340,6 @@ function update_rootfs {
 }
 
 function remove_lcdenv {
-
 	mount `realpath /dev/disk/by-partuuid/0cc66cc0-01` /boot/
 	if test -f "/boot/lcdenv"; then
 		rm "/boot/lcdenv"
