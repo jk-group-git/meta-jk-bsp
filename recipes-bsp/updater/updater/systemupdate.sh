@@ -287,17 +287,6 @@ function restart_system {
 	exit 0
 }
 
-function prepare_output {
-	systemctl stop pl161-external
-	systemctl stop pl161-internal
-	systemctl stop pl900
-	cat /dev/zero > /dev/fb0
-	cat /dev/zero > /dev/fb2
-	chvt $TTYNO
-	systemctl stop getty@`basename $TTY`
-	echo -ne "\ec" >> $TTY
-}
-
 function copy_dtb {
 	if test -n "${dtb}" && test -n "$dtb_signature"; then
 		pushd "${mountpath_usb}"
@@ -359,7 +348,6 @@ function remove_lcdenv {
 }
 
 {
-	prepare_output
 	find_updates
 	check_updates
 	if [ $? -eq 0 ]; then
