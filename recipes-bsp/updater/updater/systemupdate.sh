@@ -18,8 +18,7 @@ publickey=""
 
 KEYS=("/usr/share/keys/update/*")
 
-TTYNO=2
-TTY="/dev/tty$TTYNO"
+TTY="/dev/ttymxc0"
 
 usage="$(basename "$0") [-d dir] pulls updates from dir and tries to install them
 
@@ -57,17 +56,22 @@ if [ ! -d "${mountpath_usb}" ]; then
 fi
 
 function cleanup {
+	echo "Cleaning up." | systemd-cat -t $IDENTIFIER
 	echo "Cleaning up." >> $TTY
 	umount -l /boot
 	umount -l "${future_root_node}"
 	umount -l "${mountpath_usb}"
+	echo "Unmounted all used mountpoints." | systemd-cat -t $IDENTIFIER
 	echo "Unmounted all used mountpoints." >> $TTY
+	echo "Syncing..." | systemd-cat -t $IDENTIFIER
 	echo -n "Syncing..." >> $TTY
+	echo "Synced." | systemd-cat -t $IDENTIFIER
 	echo "Synced." >> $TTY
 }
 
 function handle_error {
 	cleanup
+	echo "There was an error installing the update. Please reset the device." | systemd-cat -t $IDENTIFIER
 	echo "There was an error installing the update. Please reset the device." >> $TTY
 	exit 1
 }
@@ -75,6 +79,7 @@ function handle_error {
 function determine_root {
 	readonly current_root_partuuid=`findmnt -n --raw --evaluate --output=PARTUUID /`
 	readonly current_root_node=`findmnt -n --raw --evaluate --output=source PARTUUID=$current_root_partuuid`
+	echo "Searching partition to install..." | systemd-cat -t $IDENTIFIER
 	echo -n "Searching partition to install..." >> $TTY
 	case $current_root_partuuid in
 		0cc66cc0-02)
@@ -89,6 +94,7 @@ function determine_root {
 			handle_error
 			;;
 	esac
+	echo "Found partition to install..." | systemd-cat -t $IDENTIFIER
 	echo "ok." >> $TTY
 }
 
@@ -115,6 +121,7 @@ function check_updates {
 		return 255;
 	fi
 	ret=255;
+	echo "checking updates..." | systemd-cat -t $IDENTIFIER
 	echo -n "checking updates..." >> $TTY
 	for key in ${KEYS[*]}; do
 		if test -n "${rootfs}" && test -n "${rootfs_signature}"; then
@@ -157,12 +164,13 @@ function check_updates {
 		return 0
 	else
 		echo "fail." >> $TTY
-		echo update set did not verify | systemd-cat -t $IDENTIFIER
+		echo update set did not verify  | systemd-cat -t $IDENTIFIER
 		return 255
 	fi
 }
 
 function find_updates {
+	echo "Searching Updates..." | systemd-cat -t $IDENTIFIER
 	echo -n "Searching Updates..." >> $TTY
 	if find_update "${mountpath_usb}"/$ROOTFS_SHA; then
 		readonly rootfs_signature="${mountpath_usb}"/$ROOTFS_SHA
@@ -195,10 +203,12 @@ function find_updates {
 		readonly uboot="${mountpath_usb}"/$UBOOT_NAME
 	fi
 
+	echo "Found Updates." | systemd-cat -t $IDENTIFIER
 	echo "ok." >> $TTY
 }
 
 function prepare_future_root {
+	echo "Formatting new rootpartition..." | systemd-cat -t $IDENTIFIER
 	echo -n "Formatting new rootpartition..." >> $TTY
 	if [ -b "${future_root_node}" ]; then
 		mkfs.ext4 "${future_root_node}"
@@ -207,6 +217,7 @@ function prepare_future_root {
 			echo Failed to create Ext4 Filesystem on "${future_root_node}". >> $TTY
 			handle_error
 		else
+			echo "Formatted new rootpartition." | systemd-cat -t $IDENTIFIER
 			echo "ok." >> $TTY
 		fi
 	else
@@ -217,7 +228,8 @@ function prepare_future_root {
 }
 
 function mount_future_root {
-	echo -n "mounting new root..." >> $TTY
+	echo "Mounting new root..." | systemd-cat -t $IDENTIFIER
+	echo -n "Mounting new root..." >> $TTY
 	if [ -b "${future_root_node}" ];then
 		readonly mountpath_future_root=`mktemp -d`
 		mount "${future_root_node}" "${mountpath_future_root}"
@@ -226,6 +238,7 @@ function mount_future_root {
 			echo Failed to mount "${future_root_node}" on "${mountpath_future_root}". >> $TTY
 			handle_error
 		else
+			echo "Mounted new root." | systemd-cat -t $IDENTIFIER
 			echo "ok." >> $TTY
 		fi
 	else
@@ -237,6 +250,7 @@ function mount_future_root {
 
 function untar_update {
 	echo "Installing files..." >> $TTY
+	echo "Installing files..." | systemd-cat -t $IDENTIFIER
 	if [ -d ]; then
 		tar -xamf "${rootfs}" -C "${mountpath_future_root}" >> $TTY
 		if [ $? -ne 0 ]; then
@@ -249,7 +263,8 @@ function untar_update {
 		echo Failed to untar "${rootfs}" into "${mountpath_future_root}". Not a directory. >> $TTY
 		handle_error
 	fi
-	echo "Files installed" >> $TTY
+	echo "Files installed" | systemd-cat -t $IDENTIFIER
+	echo "ok." >> $TTY
 }
 
 function copy_bootfile {
@@ -257,6 +272,7 @@ function copy_bootfile {
 	pushd /boot
 	cp "$1" .
 	while !(openssl dgst -sha256 -verify $publickey -signature "$2" "$1") do
+		echo "Error writing. retrying..." | systemd-cat -t $IDENTIFIER
 		echo "Error writing. retrying..." >> $TTY
 		cp "$1" .
 	done
@@ -264,6 +280,7 @@ function copy_bootfile {
 }
 
 function update_commandline {
+	echo "Changing bootloader environment..."  | systemd-cat -t $IDENTIFIER
 	echo -n "Changing bootloader environment..." >> $TTY
 	if [ -b `realpath /dev/disk/by-partuuid/0cc66cc0-01` ]; then
 		mount `realpath /dev/disk/by-partuuid/0cc66cc0-01` /boot/
@@ -283,6 +300,7 @@ function update_commandline {
 }
 
 function restart_system {
+	echo "Update procedure ended. Please remove the update medium and reset the device!" | systemd-cat -t $IDENTIFIER
 	echo "Update procedure ended. Please remove the update medium and reset the device!" >> $TTY
 	exit 0
 }
@@ -290,8 +308,11 @@ function restart_system {
 function copy_dtb {
 	if test -n "${dtb}" && test -n "$dtb_signature"; then
 		pushd "${mountpath_usb}"
-		echo -n "copying devicetree..." >> $TTY
+		echo "Copying devicetree..." | systemd-cat -t $IDENTIFIER
+		echo -n "Copying devicetree..." >> $TTY
 		copy_bootfile "${dtb}" "$dtb_signature"
+		echo "Copied devicetree." | systemd-cat -t $IDENTIFIER
+		echo -n "Copied devicetree." >> $TTY
 		echo "ok." >> $TTY
 		popd
 	fi
@@ -300,8 +321,10 @@ function copy_dtb {
 function copy_kernel {
 	if test -n "${kernel}" && test -n "$kernel_signature"; then
 		pushd "${mountpath_usb}"
-		echo -n "copying kernel..." >> $TTY
+		echo "Copying kernel..." | systemd-cat -t $IDENTIFIER
+		echo -n "Copying kernel..." >> $TTY
 		copy_bootfile "${kernel}" "$kernel_signature"
+		echo echo-n "Copied kernel." | systemd-cat -t $IDENTIFIER
 		echo "ok." >> $TTY
 		popd
 	fi
@@ -310,8 +333,10 @@ function copy_kernel {
 function copy_penv {
 	if test -n "${penv}" && test -n "$penv_signature"; then
 		pushd "${mountpath_usb}"
-		echo -n "copying u-boot environment..." >> $TTY
+		echo "Copying u-boot environment..." | systemd-cat -t $IDENTIFIER
+		echo -n "Copying u-boot environment..." >> $TTY
 		copy_bootfile "${penv}" "$penv_signature"
+		echo "Copied u-boot environment." | systemd-cat -t $IDENTIFIER
 		echo "ok." >> $TTY
 		popd
 	fi
@@ -320,8 +345,10 @@ function copy_penv {
 function copy_uboot {
 	if test -n "${uboot}" && test -n "$uboot_signature"; then
 		pushd "${mountpath_usb}"
-		echo -n "copying u-boot..." >> $TTY
+		echo "Copying u-boot..." | systemd-cat -t $IDENTIFIER
+		echo -n "Copying u-boot..." >> $TTY
 		copy_bootfile "${uboot}" "$uboot_signature"
+		echo "Copied u-boot." | systemd-cat -t $IDENTIFIER
 		echo "ok." >>$TTY
 		popd
 	fi
